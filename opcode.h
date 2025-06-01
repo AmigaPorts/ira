@@ -10,6 +10,7 @@
  *                 (C)2009-2015 Frank Wille, (C)2014-2016 Nicolas Bastien
  */
 
+
 #ifndef OPCODE_H_
 #define OPCODE_H_
 

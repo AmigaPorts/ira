@@ -19,29 +19,30 @@
 #include "ira_2.h"
 #include "supp.h"
 
-void Read68kBinary(ira_t *ira) {
-    /* In binary mode, sourceFile and binaryFile will be the same file.
-     * IRA must keep it because we don't want to delete sourceFile at exit. */
-    ira->params.pFlags |= KEEP_BINARY;
+void Read68kBinary(ira_t *ira)
+{
+   /* In binary mode, sourceFile and binaryFile will be the same file.
+    * IRA must keep it because we don't want to delete sourceFile at exit. */
+   ira->params.pFlags |= KEEP_BINARY;
 
-    /* Previously allocated string for binaryName is now useless,
-     * because pointer will be overwritten by sourceName's */
-    free(ira->filenames.binaryName);
-    ira->filenames.binaryName = ira->filenames.sourceName;
+   /* Previously allocated string for binaryName is now useless,
+    * because pointer will be overwritten by sourceName's */
+   free(ira->filenames.binaryName);
+   ira->filenames.binaryName = ira->filenames.sourceName;
 
-    /* Let's behave like this:
-     * The content of binary file IS the content of an unique HUNK_CODE hunk */
-    ira->hunkCount = 1;
-    ira->hunksMemoryType = mycalloc(sizeof(uint16_t));
-    ira->hunksMemoryAttrs = mycalloc(sizeof(uint32_t));
-    ira->hunksSize = mycalloc(sizeof(uint32_t));
-    ira->hunksType = mycalloc(sizeof(uint32_t));
-    ira->hunksOffs = mycalloc(sizeof(uint32_t));
+   /* Let's behave like this:
+    * The content of binary file IS the content of an unique HUNK_CODE hunk */
+   ira->hunkCount = 1;
+   ira->hunksMemoryType = mycalloc(sizeof(uint16_t));
+   ira->hunksMemoryAttrs = mycalloc(sizeof(uint32_t));
+   ira->hunksSize = mycalloc(sizeof(uint32_t));
+   ira->hunksType = mycalloc(sizeof(uint32_t));
+   ira->hunksOffs = mycalloc(sizeof(uint32_t));
 
-    ira->hunksSize[0] = FileLength((uint8_t *)ira->filenames.binaryName);
-    ira->hunksOffs[0] = ira->params.prgStart;
-    ira->hunksType[0] = HUNK_CODE;
+   ira->hunksSize[0] = FileLength(ira->filenames.binaryName);
+   ira->hunksOffs[0] = ira->params.prgStart;
+   ira->hunksType[0] = HUNK_CODE;
 
-    ira->firstHunk = 0;
-    ira->lastHunk = 1;
+   ira->firstHunk = 0;
+   ira->lastHunk = 1;
 }

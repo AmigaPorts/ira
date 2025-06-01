@@ -7,7 +7,7 @@
  *      Part     : binary.h
  *      Purpose  : Headers about binary source file
  *      Copyright: (C)2015-2016 Nicolas Bastien
- */
+*/
 
 #ifndef BINARY_H_
 #define BINARY_H_

@@ -15,5 +15,6 @@
 #include "ira.h"
 #include "atari.h"
 
-void ReadAtariExecutable(ira_t *ira) {
+void ReadAtariExecutable(ira_t *ira)
+{
 }

@@ -15,7 +15,17 @@
 
 extern const size_t cpuname_number;
 
-extern const char cpu_cc[][3], mmu_cc[][3], extensions[][3], caches[][3], bitop[][4], memtypename[][9], modname[][5], bitfield[][5], cpuname[][8], pmmu_reg1[][4], pmmu_reg2[][5];
+extern const char cpu_cc[][3],
+                  mmu_cc[][3],
+                  extensions[][3],
+                  caches[][3],
+                  bitop[][4],
+                  memtypename[][9],
+                  modname[][5],
+                  bitfield[][5],
+                  cpuname[][8],
+                  pmmu_reg1[][4],
+                  pmmu_reg2[][5];
 
 extern const size_t OpCode_number;
 extern Opcode_t instructions[];

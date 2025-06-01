@@ -15,5 +15,6 @@
 #include "ira.h"
 #include "elf.h"
 
-void ReadElfExecutable(ira_t *ira) {
+void ReadElfExecutable(ira_t *ira)
+{
 }

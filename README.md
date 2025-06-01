@@ -1,302 +1,260 @@
-# IRA: 680x0 Interactive ReAssembler
+```Short:		MC68000/010/020/030/040/060/851 reassembler
+Author:		Tim Ruehsen, Ilkka Lehtoranta, Frank Wille, Nicolas Bastien
+Uploader:	frank@phoenix.owl.de
+Type:		dev/asm
+Version:	2.09
+Architecture:	ppc-morphos; ppc-amigaos; m68k-amigaos >= 2.0.4; win32
 
-IRA is a CLI _ReAssembler_ which translates any 68xxxx machine code executable or
-binary file into an assembler sourcecode that might immediately be translated
-back by an assembler.
-
-                      ________________
-                     /___/_________/_/\----- - -  -   -   -
-                    /   /         /  \ \
-                   /   /  ____   /    \ \
-                  /   /  / / /  /  /\  \ \----- - -  -   -   -
-                 /   /  / / /  /  / /\  \ \
-                 \   \  \ \/  /  / /  \  \ \
-                  \   \  \/  /  /  ¯¯¯¯\  \ \----- - -  -  -   -
-                   \   \     \  ¯¯¯¯¯¯¯¯   \ \
-                    \   \     \    ______   \ \ :
-                    /   /  /\  \   \ \  :\   \ \|/--- - -  -  -   -
-                   /   /  / /\  \   \ \ ° \   \ *--
-                  /   /  / /  \  \   \/    \   \|\
-                  ¯¯¯¯¯¯¯¯¯    ¯¯¯¯¯¯¯      ¯¯¯¯:
+When I was in need for a portable M68k reassembler I remembered Tim Ruehsen's
+IRA source, and put some effort in it to make it portable to any architecture
+and any compiler. Some code was taken from Ilkka Lehtoranta's MorphOS port
+of IRA 1.05, who already cleaned the code from all SAS/C dependencies, but
+the most effort was put into making the reassembler endian-independant (which
+means it would even compile and work on x86 machines now!).
 
 
+HISTORY
 
-## Usage
+-- Modifications for V2.00 --
 
-    $ ./ira [OPTIONS] <SOURCE> [TARGET]
+Bug fixes:
+- ENTRY and OFFSET directives from the config file have been ignored
+- The BASEADR for base-relative addressing is always a real address now,
+  which is loaded to the base address register, and not an offset. This
+  caused some confusion when the binary's OFFSET is not 0.
+- MACHINE directive in the config file was emitted multiple times.
+- Fixed -M option to specifiy the CPU type.
+- Fixed parsing of RELOC32SHORT hunks.
+- Better support for raw binary input.
+- Fixed illegal access when making a label from a ROMtag name, and another
+  one when running with -preproc over code which is not ended by an RTS or
+  similar.
 
-
-* Refer to [ira.doc](ira.doc) for the original IRA V1.xx documentation.
-* Refer to [ira2.doc](ira2.doc) for IRA V2.xx documentation.
-* Refer to [ira_config.doc](ira_config.doc) for a description of config directives.
-
-### Example
-
-Using the following commands to reassemble AmigaBASIC and to assemble an
-identical binary with `vasm`. The config file was manually adjusted to reflect
-all valid code regions (create a config file with `-preproc` first), then
-duplicated as `NewAmigaBASIC.cnf`. The diff test reports no differences!
-
-    $ ira -a -compat=bi -config -keepzh AmigaBASIC
-    $ vasmm68k_mot -no-opt -Fhunkexe -nosym -o NewAmigaBASIC AmigaBASIC.asm
-    $ ira -a -compat=bi -config -keepzh NewAmigaBASIC
-    $ diff -s AmigaBASIC.asm NewAmigaBASIC.asm
-
-The option `-compat=bi` is needed to allow bad btst instructions which access a
-bit number > 7 in a byte (b) and to recognize immediate byte addressing modes
-with an MSB of 0xff (i), which both appear frequently in the program. The
-`-keepzh` option preserves empty sections, so that the number of sections stays
-the same as before.
-
-### Command-line args (default values are in brackets)
-
-```
--M68xxx (-M68000)
-        This specifies the type of processor or coprocessor for which the
-        program should be reassembled. This doesn't have anything to do with
-        the machine you're running IRA on.
-        Most programs are written for 68000 CPUs.
-        If anything other than -M68000 is specified, a MACHINE directive
-        in the .ASM file is created. This works fine with PhxAss and vasm
-        assemblers. For any other assembler this directive possibly has to be
-        changed.
-
-        Values accepted for xxx can be:
-
-        - processor
-          000,010,020,030,040,060
-        - coprocessor
-          851,881,882
-
--BINARY (off)
-        IRA automatically recognises if the sourcefile is an executable,
-        an object file or any other (binary). It may happen that some
-        kind of binary data is recognised as an executable. To avoid this
-        make use of the -BINARY option.
-
--A      (off)
-        This option makes IRA append the address and data of an instruction
-        to every line. That is pretty useful to me. E.g. when code and data
-        is mixed, you can manually delete some instructions to replace them
-        by DC.x directives.
-
--AW (off)
-        Same as -A, but enforce 8-digit addresses.
-
--INFO   (off)
-        Use this option to get some information about the hunk structure of
-        your sourcefile.
-
--OFFSET=<OFFSET> (-OFFSET=0)
-        When the sourcefile is relocated by IRA the offset value is added to
-        the relocation. Why should I do that ?
-        If you want to run an executable at a specific location in memory
-        you specify the address of that location with the -OFFSET option
-        in combination with the -KEEPBIN option. After running IRA you can
-        load the .BIN file to the specific location and execute it. You just
-        have to know what you're doing (e.g. contents of registers and so on).
-        The second, more useful application is to write a part of memory to a
-        file, then create a .ASM file with the -OFFSET option. You have to
-        take the address of the memory location as offset. E.g. you can create
-        your own kickfile with your own modifications (is it legal ?), of
-        course some additional work on the .ASM file has to be done.
-        OFFSET can be decimal or hexadecimal (e.g. -OFFSET=$4FF0).
-
--TEXT=1 (off)
-        Since version 1.03 there is only one method for finding text left. The
-        whole code and data sections are searched for text which is printed
-        out to <stdout>. It may happen that some stupid text lines show up, so
-        you have to decide yourself about every line to include into the .ASM
-        file.
-
--KEEPZH (off)
-        There are files that have hunks with a length of zero. By default
-        these hunks don't appear in the .ASM file. If you want them preserved
-        just use this option. There are executables where you have to use
-        this option, because they work with their own SEGMENT structure.
-
--KEEPBIN (off)
-        Before the first pass, an executable is relocated by IRA and written
-        to a .BIN file. Normally, this file is deleted at some point, but if
-        you want to keep it for some purpose, use the -KEEPBIN option.
-        E.g. for a <type >x.hex x.bin opt h>.
-
--OLDSTYLE (depends on the -M68xxx option)
-        This option forces IRA to use the old Motorola syntax like D16(PC)
-        instead of (D16,PC). By default this option is used for 68000 and
-        68010 processors.
-
--NEWSTYLE (depends on the -M68xxx option)
-        This option forces IRA to use the new Motorola syntax like (D16,PC)
-        instead of D16(PC). By default this option is used for 68020, 68030,
-        68040 and 68060 processors.
-
--ESCCODES (off)
-        Use escape character '\\' in strings.
-
--COMPAT=x (off)
-        Various compatibility flags.
-
-        b : Recognize immediate values of 8-15 for bit-instructions accessing
-            memory (former -BITRANGE option).
-        i : Recognize immediate byte addressing modes with an MSB of 0xff.
-            Some assemblers generated 0xffff instead of 0x00ff for #-1.
-
--SPLITFILE (off)
-        With this option the .ASM file is split up. Every section is put into
-        its own file. One 'main' file is created to include these files via
-        INCLUDE directives. What is it for ? I don't know. I was asked for
-        this option.
-
--CONFIG (off)
-        First, you can control the IRA settings with this option. That means
-        you can specify the parameters that are otherways controlled via the
-        command-line options. Second, you can specify addresses where to find
-        code. This is useful for addresses where the -PREPROC option oversees
-        code (for whatever reason). Third, you can specify symbols that are
-        inserted instead using the 'LAB_xxxx' type.
-
-        In combination with the -PREPROC option a new .cnf file is created.
-        All the code areas found by PASS 0 are then written to this .cnf file.
-        In addition, most of the command-line options are included, too.
-        So, for the next calling of IRA you won't need to specify all of the
-        command-line options you used to.
-
-        If a .cnf file exists, a possible new one does not overwrite the old
-        one. The name of the new one just get a '1' appended to its name.
-        Look out for that.
-
-        See ira_config.doc for details.
-
-        Try the -CONFIG option out in combination with the -PREPROC option.
-        IRA will create a .cnf file that you can look at for better
-        understanding.
-
--PREPROC (off)
-        This option will turn on PASS 0. That is to find data in code sections
-        and even code in data sections (e.g some old compilers put their
-        jumptables into data sections). Found data is checked for text.
-        This option normally works very fine for compiled programs. But there
-        may be problems like these:
-
-        - parts of code may be seen as data. This comes for
-          o code that is jumped to by (An), D16(An) or D8(PC,An)
-            (jumptables, pointers to code, ...).
-          o interrupt code that is only referenced by pointer (installation).
-          o code that is never used.
-
-        - parts of data may be seen as code. This comes for
-          o crypted or crunched code.
-
--ENTRY=<OFFSET> (-ENTRY=0)
-        If you know, that a file has data at the beginning (eg. bootblocks),
-        you specify the (relative) adress where IRA should begin with
-        code-scanning. For bootblocks: -ENTRY=$C .
-
--BASEREG[=n[,adr,sec]]
-        n is the number of the base register, adr the address with that the
-        base register is loaded and sec the section that n is related to.
-
-        You can use this option if the program uses the smalldata model. It
-        will provide you with a more readable .ASM file.
-        Smalldata model means the access to data is made by D16(An), and the
-        register An has to be preloaded by the SMALLDATABASE value. A lot of
-        compilers use A4 as baseregister and the address of the datasection
-        plus 32766 as the SMALLDATABASE.
-        A good way to find out if a program makes use of the smalldata model
-        is the following:
-        1. Type "IRA >x -a -info -basereg test"
-        2. Look at the file test.asm and x with an editor.
-           If there are memory accesses by D16(An) (e.g. move.l -32754(A4),D0)
-           look at the file x. There may be lines like BASEREG 00000008: A4.
-           The first number is the hexadecimal address of an instruction that
-           has A4 as destination register. Look at this address in the file
-           test.asm. You may find a line like LEA SECSTRT_1,A4. Perhaps, A4
-           is the base register and SECSTRT_1 the SMALLDATABASE. Now memo the
-           address of SECSTRT_1 (=adr).
-        3. Type "IRA -a -info -basereg=4,adr,1 test"
-        4. Look at test.asm and you will see LAB_xxxx instead of D16(A4).
-        5. The line NEAR A4,1 in test.asm tells the assembler to use the
-           smalldata model. This directive may differ from assembler to
-           assembler.
-
-        As always, be careful when modifying a program. Often code and data
-        is mixed or there are some program protection techniques that makes
-        it hard to modify and run a program.
-
--BASEABS (off)
-        When specified, a label in base-relative addressing mode is written as
-        an absolute label, without the base register name (as with IRA V1.05).
-        The default behaviour now is to write base-relative references
-        as "(label,An)".
-```
+New features:
+- Use BASEREG instead of the PhxAss-specific NEAR directive for base-relative
+  addressing modes. There are more assemblers (including vasm 1.4 and PhxAss)
+  supporting it.
+- Option -BASEABS. When specified, a label in base-relative addressing mode
+  is written as an absolute label, without the base register name (as with
+  IRA V1.05). The default behaviour now is to write base-relative references
+  as "(label,An)".
+- Option -BITRANGE. Also recognizes bit-test/manipulation instructions as
+  valid when accessing bits 8-15 in memory (e.g. btst #14,DMACONR).
+- Config file directive PTRS. Syntax: PTRS <adr1> [<adr2>]. It defines a
+  single address or a range of addresses which contain 32-bit pointers to
+  addresses from the reassembled binary. This directive is especially useful
+  in data sections of a raw binary, which has no relocation information.
+  IRA will create a label for all the pointers in that range.
+- Config file directive NBAS. Syntax: NBAS <adr1> <adr2>. Defines that the
+  area between <adr1> and <adr2> should not use base-relative addressing
+  modes (e.g. because the base register is used in another way here).
+  IRA will start this area with an "ENDB An", to disable basereg-mode, and
+  reenables base-relative mode with a BASEREG directive afterwards.
+- I made sure that there is always a valid size extension as instruction
+  suffix and in indirect addressing modes. ".W" was mostly missing before.
+- Output an ORG directive instead of SECTION when the -binary option had
+  been specified.
+- Switched from PhxAss specific MACHINE/FPU/PMMU directives to MC680x0/
+  MC68881/MC68851, which is understood by more assemblers (e.g. vasm,
+  phxass, barfly, snma, etc.).
 
 
+-- Modifications for V2.01 --
 
-## Installation
+Bug fixes:
+- Call fopen() in binary-mode where appropriate, for Windows support.
+
+New features:
+- " in strings are now encoded as "" by default. To get the PhxAss-specific
+  (and vasm-supported) \" encoding, use the new -ESCCODES option.
+- The string length is limited to 60 bytes, before a new line is started.
+
+
+-- Modifications for V2.02 --
+
+Bug fixes:
+- Fixed NBAS config directive. Only the entry with the highest address worked.
+- File buffers for binary and config file name were too small. Extended from
+  32 to 128 bytes (as source and target file name buffer already were).
+- An immediate width-field in bitfield instructions showed up as '0' when
+  it should have been '32'.
+- Multiple MACHINE directives in the config file confused IRA.
+- Fixed DIVxL.L, DIVx.L and MULx.L.
+- A new label is defined for the base-address, used in BASEREG. Using a
+  SECSTRT_n-offset is unreliable when optimizing.
+
+New features:
+- New/improved BASEREG handling. The base-relative section specifier (BASESEC)
+  has disappeared. It is sufficient to define base-relative addressing by
+  a base-register and a base-address (e.g. -BASEREG=4,$12340).
+- New config file directive BASEOFF (also as optional third argument in the
+  -BASEREG option) defines an additional offset on the base-label (usually
+  32766).
+- (d8,An,Rn) addressing modes may also be used for base-relative addressing.
+- Always create a SECSTRT_n symbol when starting a new section, even when
+  this address is not referenced.
+- After some modifications, Makefile.win32 was reported to work with VC6.
+
+
+-- Modifications for V2.03 --
+
+Bug fixes:
+- Make sure that CODE areas, when read from a config file, are split at
+  section boundaries. Otherwise IRA cannot detect the start of a new section
+  during source generation.
+- BASEADR didn't work correctly for raw binary files.
+
+New features:
+- Config file directive TEXT. To define a region in data as printable text.
+  This overrides the automatic text recognition.
+  Syntax: "TEXT $<start> - $<end>".
+- Config file directives JMPB, JMPW and JMPL for generating jump-tables
+  (or other offset-tables used to reference a program address).
+  Syntax: "JMP<s> $<start> - $<end> [@ $<base>]". <s> may be B, W or L and
+  defines the width of the table entries (8, 16, 32 bit). The <base> is
+  optional and same as <start>, when missing. It defines the base address
+  where the table-offsets are added to.
+- Option -BITRANGE, which was introduced in V2.00, was replaced by
+  -COMPAT=<flags> to allow multiple compatibility flags. Currently known:
+  b : Recognize immediate values of 8-15 for bit-instructions accessing
+      memory (former -BITRANGE option).
+  i : Recognize immediate byte addressing modes with an MSB of 0xff. Some
+      assemblers generated 0xffff instead of 0x00ff for #-1.
+
+
+-- Modifications for V2.04 --
+
+Bug fixes:
+- Fixed automatic ROM tag detection routine. Handling of absolute 32-bit
+  function tables did not work when a relative 16-bit one was found before.
+- Function names from ROM tag function tables were sometimes missing, when
+  the input file is a raw binary.
+- Fixed SECSTRT_n symbol recognition with BASEREG directive and small data
+  addressing modes.
+- Do not forget .W extension for word-sized LINK, MOVEA and MOVEP.
+- Recognize BTST Dn,#x.
+
+New features:
+- Report about misplaced relocations in code (usually caused by a bad PTRS
+  directive).
+- Print a warning when a symbol from HUNK_SYMBOL is not inside the current
+  section limits, and ignore this symbol.
+- Base-relative symbols outside the small-data section's bounds are
+  referenced via SECTSTRT_n and a warning is printed (because the
+  instruction could be data, or the base register contains something
+  else at this point).
+
+
+-- Modifications for V2.05 --
+
+Bug fixes:
+- Fixed a possible crash when a config file defines a SYMBOL where the
+  assigned value is not within the reassembled address range.
+- Fixed a crash on encountering relocations at an odd address. This cannot
+  easily be supported at the moment, so IRA will just quit when it happens.
+- Reverted some stupid changes of the last release. Always prefer a label
+  from the referring section in case both have the same address.
+
+New features:
+- Config file directive NOPTRS. Syntax is like PTRS, but it will prevent IRA
+  from taking any address in this region as a program pointer (which would
+  generate a label). Only works with binary input files!
+
+
+-- Modifications for V2.06 --
+
+Bug fixes:
+- Make IRA compile and work on 64-bit systems (using a 64-bit compiler).
+- An empty register list is now written as #0 instead of (NOREG!). This
+  makes it assemble (with vasm at least).
+- Fixed label-generation for references into the middle of a data relocation
+  (e.g. use "label+2" instead of making a new label, which caused trouble).
+- Put both sides of the subtract operation into parentheses, when generating
+  code for a jump table (to avoid problems with "label1-label2+2").
+- Fixed some possible crashes.
+
+
+-- Modifications for V2.07 --
+
+Bug fixes:
+- A lot more fixes to make IRA clean for 64-bit compilers. Seems to work
+  much better now.
+- A base address of 0 should be allowed with binary files.
+
+New features:
+- Allow comments ';' and empty lines in the config file.
+
+
+-- Modifications for V2.08 --
+
+Bug fixes:
+- Fixed problems with printf output formats for 64-bit compilers.
+- $083c is illegal and was erroneously disassembled to BTST #n,CCR.
+- Fixed CMP2, CHK2, CAS, CAS2.
+
+New features:
+- Do not overwrite an existing config file, when -preproc is specified.
+- Make it work on Mac OSX 64-bit systems.
+
+
+-- Modifications for V2.09 --
+
+Bug fixes:
+- Fixed possible crash with low memory.
+- Fixed CINV and CPUSH (only "LINE" operations were recognized).
+- Fixed input file names with deep paths.
+- Fixed negative values on 64-bit systems.
+- Fixed MOVE16 (only MOVE16 (Ax)+,(Ay)+ were recognized).
+- Fixed MOVEC (incorrect control register).
+- Fixed MOVES (extension word were ignored).
+- Fixed BFINS (swapped operands).
+
+New features:
+- Support for extended memory attributes in Amiga executables.
+- Improve CPU choice on command line.
+- New general documentation file (ira2.doc).
+- New documentation file about config file's directives (ira_config.doc).
+- New directives for config file: COMMENTS, BANNER, EQU and LABEL (see
+  ira_config.doc).
+- Improve error messages.
+- Also support '0x' to denote hexadecimal addresses on the command line.
+- New option -AW enforces 8-digit address output, when printing address
+  and data in the comment field.
+- Support for 68060 instructions (except FPU).
+- Support for MMU instructions.
+
+
+INSTALLATION
 
 Copy the binary for your architecture anywhere you want (e.g. C:) and rename
-it into `ira`.
+it into "ira".
 
-* ira_68k: IRA for AmigaOS2.x/3.x (680x0)
-* ira_os4: IRA for AmigaOS4.x (PPC)
-* ira_mos: IRA for MorphOS1.x/2.x (PPC)
-
-
-
-## Compiling
-
-Use `makefile` to compile the source with `gcc` on any architecture.
-
-- Use `Makefile` to compile IRA for any GNU tools (including macOS).
-- Use `Makefile.win32` to compile IRA for Windows (tested with VC6).
-- Use `Makefile.os3` to compile a native binary with vbcc for AmigaOS 2.x/3.x.
-- Use `Makefile.os4` to compile a native binary with vbcc for AmigaOS4.x.
-- Use `Makefile.mos` to compile a native binary with vbcc for MorphOS.
+ira_68k: IRA for AmigaOS2.x/3.x (680x0)
+ira_os4: IRA for AmigaOS4.x (PPC)
+ira_mos: IRA for MorphOS1.x/2.x (PPC)
 
 
+SOURCE TEXT
 
-## How to Reassemble a Program
+Use "makefile" to compile the source with gcc on any architecture. It was
+successfully tested on a Mac G4, Sun Sparcstation, an i386 system (all
+running NetBSD kernels) and Win32 GNU.
 
-First, you have to be sure that your Assembler, Linker and IRA work fine.
+- Use "Makefile" to compile IRA for any GNU tools.
+- Use "Makefile.win32" to compile IRA for Windows (tested with VC6).
+- Use "Makefile.osx" to compile IRA for Mac OS x.
+- Use "Makefile.os3" to compile a native binary with vbcc for AmigaOS 2.x/3.x.
+- Use "Makefile.os4" to compile a native binary with vbcc for AmigaOS4.x.
+- Use "Makefile.mos" to compile a native binary with vbcc for MorphOS.
 
-That goes like follows:
+Note: On BSD systems use GNU's make command ("gmake") and not the
+      native one ("make").
 
-    (Let's assume the linker is called `ln`, the Assembler is called `as` and the
-     program is called `test`.)
-
-    $ ira -a test test1.s
-    $ as -n test1.s           (assume -n to be the NO_OPTIMISE flag)
-    $ ln test1.o
-    $ ira -a test1 test2.s
-    $ fdiff test1.s test2.s resync 1
-
-If no error pops up until now it's very likely that `test1` will work. (Try it).
-
-If `fdiff` tells you that there are differences between `test1.s` and `test2.s` you
-have to be careful with running `test1` because there is at least one bug in
-IRA or in your assembler.
-
-If you got no problems with the five points above you can start with editing
-`test1.s`. First, try to find all data that is hidden in code sections and
-replace the instructions with `DC.W` directives. If you have done so try
-assembling `test1.s` with an optimising assembler (should work).
-
-To find parts of text use the `-TEXT` option. Or use the `-KEEPBIN` option and
-type `<type >test.hex test.bin opt h>` and look at `test.hex` for text.
-
-To collect some experience it'll be better to begin with short programs.
-
-To reassemble bootblocks, disktracks or memory take a monitor program and put
-these things into a file. Then invoke IRA.
-
-
-
-## What Assembler Can I Use?
+USAGE
 
 The original IRA was tuned for PhxAss, which might still work. The
 recommended assembler is vasm/M68k V1.7 or greater though, which you
-should call with the `-no-opt` option to avoid optimizations, for the
+should call with the -no-opt option to avoid optimizations, for the
 generation of an identical binary.
 
 Other assemblers like DevPac, Barfly and SNMA can assemble IRA output
@@ -304,41 +262,31 @@ without error, but do not generate identical code. All of them convert
 ADD/SUB/CMP/AND/etc. into their immediate form (ADDI/SUBI/CMPI/ANDI/etc.)
 when possible, and DevPac additionally swaps registers in EXG.
 
-You can use any assembler you want, but minor problems may occur:
+Example: I'm using the following commands to reassemble AmigaBASIC and
+to assemble an identical binary with vasm. The config file was manually
+adjusted by me to reflect all valid code regions (create a config file
+with -preproc first), then duplicated as NewAmigaBASIC.cnf. The diff test
+reports no differences!
 
-  - There may be problems with the SECTION, MACHINE and NEAR directives.
-    Change these lines by hand.
-  - Some assemblers can't handle more than 2^16-1 (65535) lines. Get the
-    GigaPhxAss from Frank Wille for the big programs.
-  - If code and data is mixed in a code hunk you have to switch optimising
-    off when you run the assembler. Else the chance of having a damaged
-    program is very high. Some assemblers have problems with that.
+  ira -a -compat=bi -config -keepzh AmigaBASIC
+  vasmm68k_mot -no-opt -Fhunkexe -nosym -o NewAmigaBASIC AmigaBASIC.asm
+  ira -a -compat=bi -config -keepzh NewAmigaBASIC
+  diff -s AmigaBASIC.asm NewAmigaBASIC.asm
 
-
-
-## Notes
-
-Reassembling programs for 68020+ processors may cause trouble with some
-addressing modes.
-
-For example: (0,A0) and (0,A0) seem to be the same, but the first may be
-(d16,An) and the second (bd,An,Xn) with Xn suppressed (and bd might be 16
-or 32 bit). There are other ambiguous addressing modes.
-IRA has no problems with that, but assemblers can't know what the original
-addressing mode was, so problems with running a reassembled file may occur.
+The option -compat=bi is needed to allow bad btst instructions which
+access a bit number > 7 in a byte (b) and to recognize immediate byte
+addressing modes with an MSB of 0xff (i), which both appear frequently
+in the program. The -keepzh option preserves empty sections, so that the
+number of sections stays the same as before.
 
 
+Refer to ira.doc for the original IRA V1.xx documentation.
+Refer to ira2.doc for IRA V2.xx documentation.
+Refer to ira_config.doc for a description of config directives.
 
-## License
-
-IRA is freeware.
-
-There is no guarantee for the correct functioning of IRA.
-
-Any responsibility will be explicitly rejected for any consequences from the
-use of IRA whatsoever. This includes, but is not limited to, secondary
-consequences, personal injuries or other kinds of side effects.
-
-Note: IRA is no longer Shareware, but Freeware! The initial author,
+Note that IRA is no longer Shareware, but Freeware! The initial author,
 Tim Ruehsen, should not be contacted, as he left the Amiga and stopped
 working on IRA many years ago.
+
+For bug reports, suggestions, etc. contact Frank Wille (frank@phoenix.owl.de).
+```
